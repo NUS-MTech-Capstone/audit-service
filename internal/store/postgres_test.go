@@ -65,4 +65,15 @@ ON CONFLICT (session_id) DO NOTHING
 	if len(summaries) != 1 || summaries[0].RecordCount != 1 {
 		t.Fatalf("summaries = %#v", summaries)
 	}
+	globalRecords, err := st.ListAuditRecords(t.Context(), model.ListAuditRecordsFilter{
+		SessionID:  session.SessionID,
+		RecordType: model.AuditRecordCommand,
+		Limit:      10,
+	}, time.Hour)
+	if err != nil {
+		t.Fatalf("ListAuditRecords() error = %v", err)
+	}
+	if len(globalRecords) != 1 || globalRecords[0].CommandText != "pwd" {
+		t.Fatalf("globalRecords = %#v", globalRecords)
+	}
 }

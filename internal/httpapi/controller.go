@@ -41,6 +41,44 @@ func (s *Server) listAuditSessions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (s *Server) listAuditRecords(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	from, err := parseOptionalTime(query.Get("from"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "from must be RFC3339")
+		return
+	}
+	to, err := parseOptionalTime(query.Get("to"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "to must be RFC3339")
+		return
+	}
+	recordType := query.Get("recordType")
+	if recordType != "" && recordType != model.AuditRecordCommand &&
+		recordType != model.AuditRecordOutput &&
+		recordType != model.AuditRecordControl &&
+		recordType != model.AuditRecordSessionEvent {
+		writeError(w, http.StatusBadRequest, "recordType is not supported")
+		return
+	}
+	response, err := s.svc.ListAuditRecords(r.Context(), model.ListAuditRecordsFilter{
+		SessionID:  query.Get("sessionId"),
+		UserID:     query.Get("userId"),
+		HostID:     query.Get("hostId"),
+		CRID:       query.Get("crId"),
+		RecordType: recordType,
+		From:       from,
+		To:         to,
+		Limit:      parsePositiveInt(query.Get("limit"), 100),
+		Offset:     parsePositiveInt(query.Get("cursor"), 0),
+	})
+	if err != nil {
+		writeError(w, statusForError(err), err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 func (s *Server) getSessionAudit(w http.ResponseWriter, r *http.Request) {
 	id, action := parseSessionPath(r.URL.Path)
 	if action != "audit/records" {

@@ -71,6 +71,24 @@ func (s *Service) ListSessionAuditRecords(
 	return response, nil
 }
 
+func (s *Service) ListAuditRecords(
+	ctx context.Context,
+	filter model.ListAuditRecordsFilter,
+) (model.ListSessionAuditRecordsResponse, error) {
+	if filter.Limit <= 0 || filter.Limit > 500 {
+		filter.Limit = 100
+	}
+	records, err := s.store.ListAuditRecords(ctx, filter, s.auditRetention)
+	if err != nil {
+		return model.ListSessionAuditRecordsResponse{}, err
+	}
+	response := model.ListSessionAuditRecordsResponse{Records: records}
+	if len(records) == filter.Limit {
+		response.NextCursor = strconv.Itoa(filter.Offset + len(records))
+	}
+	return response, nil
+}
+
 func (s *Service) ListAuditSessions(
 	ctx context.Context,
 	filter model.ListAuditSessionsFilter,

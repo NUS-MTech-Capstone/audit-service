@@ -55,6 +55,10 @@ func TestSessionAuditHTTPAppendAndList(t *testing.T) {
 	if !strings.Contains(records.Body.String(), `"commandText":"pwd"`) {
 		t.Fatalf("records body = %s", records.Body.String())
 	}
+	globalRecords := doJSON(t, server, http.MethodGet, "/sessions/audit/records?hostId=host-1&recordType=command&limit=10", ``, http.StatusOK)
+	if !strings.Contains(globalRecords.Body.String(), `"commandText":"pwd"`) {
+		t.Fatalf("global records body = %s", globalRecords.Body.String())
+	}
 	sessions := doJSON(t, server, http.MethodGet, "/sessions/audit?userId=user-1", ``, http.StatusOK)
 	if !strings.Contains(sessions.Body.String(), `"connectionType":"ssh"`) {
 		t.Fatalf("audit sessions body = %s", sessions.Body.String())
@@ -67,6 +71,7 @@ func TestSessionAuditHTTPValidationAndUnknownRoutes(t *testing.T) {
 	doJSON(t, server, http.MethodGet, "/sessions/sess-1/unknown", ``, http.StatusNotFound)
 	doJSON(t, server, http.MethodPost, "/sessions/sess-1/unknown", `{}`, http.StatusNotFound)
 	doJSON(t, server, http.MethodGet, "/sessions/audit?from=bad", ``, http.StatusBadRequest)
+	doJSON(t, server, http.MethodGet, "/sessions/audit/records?recordType=bad", ``, http.StatusBadRequest)
 }
 
 func doJSON(t *testing.T, server *Server, method, path, body string, wantStatus int) *httptest.ResponseRecorder {

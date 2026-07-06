@@ -40,6 +40,7 @@ missing. Existing rows from the former Session Manager-owned table are preserved
 GET  /healthz
 GET  /openapi.yaml
 GET  /sessions/audit?userId={userId}&hostId={hostId}&crId={crId}&sessionId={sessionId}
+GET  /sessions/audit/records?sessionId={sessionId}&userId={userId}&hostId={hostId}&crId={crId}&recordType={recordType}
 POST /sessions/{sessionId}/audit/records
 GET  /sessions/{sessionId}/audit/records
 ```
@@ -51,6 +52,12 @@ Manager `GET /sessions/{sessionId}` before storing records.
 Records include best-effort command lines, output bytes encoded as base64 in
 JSON, control/session events, per-session sequence numbers, and truncation
 flags. Defaults:
+
+The global record query is for dashboard/log search across retained SSH audit
+records. It supports `from`, `to`, `limit`, and offset `cursor` query
+parameters and sorts records newest first. It does not add incident or alert
+identifiers to SSH audit rows; Agentic AI incident correlation is performed by
+host and time window in the web dashboard.
 
 ```bash
 SESSION_AUDIT_RETENTION_SECONDS=604800

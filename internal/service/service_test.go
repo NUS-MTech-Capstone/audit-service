@@ -68,6 +68,13 @@ func TestServiceAppendsAndHydratesAuditSummaries(t *testing.T) {
 	if len(response.Sessions) != 1 || response.Sessions[0].ConnectionType != "ssh" || !response.Sessions[0].CreatedAt.Equal(createdAt) {
 		t.Fatalf("response = %#v", response)
 	}
+	global, err := svc.ListAuditRecords(t.Context(), model.ListAuditRecordsFilter{UserID: "user-1", Limit: 1})
+	if err != nil {
+		t.Fatalf("ListAuditRecords() error = %v", err)
+	}
+	if len(global.Records) != 1 || global.NextCursor != "1" {
+		t.Fatalf("global = %#v", global)
+	}
 }
 
 func TestServiceMapsMissingSession(t *testing.T) {

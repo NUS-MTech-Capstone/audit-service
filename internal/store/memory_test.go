@@ -79,3 +79,65 @@ func TestMemoryStoreRejectsInvalidAuditRecords(t *testing.T) {
 		t.Fatal("AppendSessionAuditRecords() accepted invalid outputDataBase64")
 	}
 }
+
+func TestMemoryStoreListAuditRecordsFiltersCursorAndRetention(t *testing.T) {
+	st := NewMemoryStore()
+	st.now = func() time.Time { return time.Date(2026, 7, 6, 2, 0, 0, 0, time.UTC) }
+	session1 := model.Session{SessionID: "sess-1", UserID: "user-1", HostID: "host-1", CRID: "cr-1"}
+	session2 := model.Session{SessionID: "sess-2", UserID: "user-2", HostID: "host-1", CRID: "cr-2"}
+	_, err := st.AppendSessionAuditRecords(t.Context(), session1, model.AppendSessionAuditRecordsRequest{
+		Records: []model.AppendSessionAuditRecord{
+			{RecordType: model.AuditRecordCommand, CommandID: "cmd-old", CommandText: "old", CreatedAt: "2026-07-06T00:00:00Z"},
+			{RecordType: model.AuditRecordOutput, CommandID: "cmd-old", OutputDataBase64: base64.StdEncoding.EncodeToString([]byte("old\n")), CreatedAt: "2026-07-06T00:00:01Z"},
+			{RecordType: model.AuditRecordCommand, CommandID: "cmd-new", CommandText: "new", CreatedAt: "2026-07-06T01:00:00Z"},
+		},
+	}, 24*time.Hour, 1024)
+	if err != nil {
+		t.Fatalf("append session1: %v", err)
+	}
+	_, err = st.AppendSessionAuditRecords(t.Context(), session2, model.AppendSessionAuditRecordsRequest{
+		Records: []model.AppendSessionAuditRecord{
+			{RecordType: model.AuditRecordCommand, CommandID: "cmd-other", CommandText: "other", CreatedAt: "2026-07-06T01:30:00Z"},
+		},
+	}, 24*time.Hour, 1024)
+	if err != nil {
+		t.Fatalf("append session2: %v", err)
+	}
+
+	records, err := st.ListAuditRecords(t.Context(), model.ListAuditRecordsFilter{
+		HostID: "host-1", RecordType: model.AuditRecordCommand, Limit: 2,
+	}, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("ListAuditRecords() error = %v", err)
+	}
+	if len(records) != 2 || records[0].SessionID != "sess-2" || records[1].CommandText != "new" {
+		t.Fatalf("records = %#v", records)
+	}
+	records, err = st.ListAuditRecords(t.Context(), model.ListAuditRecordsFilter{
+		HostID: "host-1", RecordType: model.AuditRecordCommand, Limit: 2, Offset: 2,
+	}, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("ListAuditRecords() cursor error = %v", err)
+	}
+	if len(records) != 1 || records[0].CommandText != "old" {
+		t.Fatalf("cursor records = %#v", records)
+	}
+	records, err = st.ListAuditRecords(t.Context(), model.ListAuditRecordsFilter{
+		From:  time.Date(2026, 7, 6, 0, 30, 0, 0, time.UTC),
+		To:    time.Date(2026, 7, 6, 1, 15, 0, 0, time.UTC),
+		Limit: 10,
+	}, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("ListAuditRecords() time error = %v", err)
+	}
+	if len(records) != 1 || records[0].CommandText != "new" {
+		t.Fatalf("time records = %#v", records)
+	}
+	records, err = st.ListAuditRecords(t.Context(), model.ListAuditRecordsFilter{Limit: 10}, time.Hour)
+	if err != nil {
+		t.Fatalf("ListAuditRecords() retention error = %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("retained records = %#v", records)
+	}
+}

@@ -95,6 +95,60 @@ func (s *MemoryStore) ListSessionAuditRecords(
 	return records, nil
 }
 
+func (s *MemoryStore) ListAuditRecords(
+	_ context.Context,
+	filter model.ListAuditRecordsFilter,
+	retention time.Duration,
+) ([]model.SessionAuditRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.prune(retention)
+	records := make([]model.SessionAuditRecord, 0)
+	for _, sessionRecords := range s.records {
+		for _, record := range sessionRecords {
+			if filter.SessionID != "" && record.SessionID != filter.SessionID {
+				continue
+			}
+			if filter.UserID != "" && record.UserID != filter.UserID {
+				continue
+			}
+			if filter.HostID != "" && record.HostID != filter.HostID {
+				continue
+			}
+			if filter.CRID != "" && record.CRID != filter.CRID {
+				continue
+			}
+			if filter.RecordType != "" && record.RecordType != filter.RecordType {
+				continue
+			}
+			if !filter.From.IsZero() && record.CreatedAt.Before(filter.From) {
+				continue
+			}
+			if !filter.To.IsZero() && record.CreatedAt.After(filter.To) {
+				continue
+			}
+			records = append(records, record)
+		}
+	}
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].CreatedAt.Equal(records[j].CreatedAt) {
+			if records[i].SessionID == records[j].SessionID {
+				return records[i].Sequence > records[j].Sequence
+			}
+			return records[i].SessionID < records[j].SessionID
+		}
+		return records[i].CreatedAt.After(records[j].CreatedAt)
+	})
+	if filter.Offset > len(records) {
+		return []model.SessionAuditRecord{}, nil
+	}
+	end := filter.Offset + filter.Limit
+	if filter.Limit <= 0 || end > len(records) {
+		end = len(records)
+	}
+	return append([]model.SessionAuditRecord(nil), records[filter.Offset:end]...), nil
+}
+
 func (s *MemoryStore) ListAuditSessions(
 	_ context.Context,
 	filter model.ListAuditSessionsFilter,

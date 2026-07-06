@@ -60,6 +60,18 @@ type ListSessionAuditRecordsFilter struct {
 	Limit         int
 }
 
+type ListAuditRecordsFilter struct {
+	SessionID  string
+	UserID     string
+	HostID     string
+	CRID       string
+	RecordType string
+	From       time.Time
+	To         time.Time
+	Limit      int
+	Offset     int
+}
+
 type ListSessionAuditRecordsResponse struct {
 	Records    []SessionAuditRecord `json:"records"`
 	NextCursor string               `json:"nextCursor,omitempty"`

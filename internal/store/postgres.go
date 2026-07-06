@@ -68,6 +68,9 @@ CREATE INDEX IF NOT EXISTS session_audit_records_session_sequence_idx
 
 CREATE INDEX IF NOT EXISTS session_audit_records_lookup_idx
 	ON session_audit_records (user_id, host_id, cr_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS session_audit_records_global_lookup_idx
+	ON session_audit_records (created_at DESC, session_id, sequence);
 `
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("migrate postgres store: %w", err)
@@ -197,6 +200,48 @@ LIMIT $3
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list session audit records: %w", err)
+	}
+	return records, nil
+}
+
+func (s *PostgresStore) ListAuditRecords(
+	ctx context.Context,
+	filter model.ListAuditRecordsFilter,
+	retention time.Duration,
+) ([]model.SessionAuditRecord, error) {
+	if err := s.prune(ctx, s.db, retention); err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx, `
+SELECT session_id, user_id, host_id, cr_id, record_type, sequence, command_id,
+	command_text, output_data, created_at, truncated, byte_count
+FROM session_audit_records
+WHERE ($1 = '' OR session_id = $1)
+	AND ($2 = '' OR user_id = $2)
+	AND ($3 = '' OR host_id = $3)
+	AND ($4 = '' OR cr_id = $4)
+	AND ($5 = '' OR record_type = $5)
+	AND ($6::timestamptz IS NULL OR created_at >= $6)
+	AND ($7::timestamptz IS NULL OR created_at <= $7)
+ORDER BY created_at DESC, session_id ASC, sequence DESC
+LIMIT $8 OFFSET $9
+`, filter.SessionID, filter.UserID, filter.HostID, filter.CRID, filter.RecordType,
+		nullableTime(filter.From), nullableTime(filter.To), filter.Limit, filter.Offset,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list audit records: %w", err)
+	}
+	defer rows.Close()
+	records := make([]model.SessionAuditRecord, 0)
+	for rows.Next() {
+		var record model.SessionAuditRecord
+		if err := scanAuditRecord(rows, &record); err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list audit records: %w", err)
 	}
 	return records, nil
 }

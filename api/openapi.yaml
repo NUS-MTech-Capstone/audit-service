@@ -44,6 +44,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListAuditSessionsResponse"
+  /sessions/audit/records:
+    get:
+      summary: List retained SSH audit records across sessions
+      parameters:
+        - in: query
+          name: sessionId
+          schema: { type: string }
+        - in: query
+          name: userId
+          schema: { type: string }
+        - in: query
+          name: hostId
+          schema: { type: string }
+        - in: query
+          name: crId
+          schema: { type: string }
+        - in: query
+          name: recordType
+          schema:
+            type: string
+            enum: [command, output, control, session_event]
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500 }
+        - in: query
+          name: cursor
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Matching retained SSH audit records sorted newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSessionAuditRecordsResponse"
   /sessions/{sessionId}/audit/records:
     post:
       summary: Append command/output audit records for the owning dataplane process
