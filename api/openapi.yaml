@@ -1,0 +1,166 @@
+openapi: 3.0.3
+info:
+  title: DenDenMushi Audit Service API
+  version: 0.1.0
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        "200":
+          description: Service is healthy.
+  /sessions/audit:
+    get:
+      summary: List sessions with retained command/output audit records
+      parameters:
+        - in: query
+          name: userId
+          schema: { type: string }
+        - in: query
+          name: hostId
+          schema: { type: string }
+        - in: query
+          name: crId
+          schema: { type: string }
+        - in: query
+          name: sessionId
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - in: query
+          name: cursor
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Matching audited sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAuditSessionsResponse"
+  /sessions/{sessionId}/audit/records:
+    post:
+      summary: Append command/output audit records for the owning dataplane process
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendSessionAuditRecordsRequest"
+      responses:
+        "201":
+          description: Accepted audit records.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSessionAuditRecordsResponse"
+        "400":
+          description: Invalid request or owner mismatch.
+        "404":
+          description: Session not found.
+    get:
+      summary: List retained command/output audit records for a session
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500 }
+        - in: query
+          name: cursor
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Retained audit records.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSessionAuditRecordsResponse"
+        "404":
+          description: Session not found.
+components:
+  parameters:
+    SessionId:
+      in: path
+      name: sessionId
+      required: true
+      schema: { type: string }
+  schemas:
+    AppendSessionAuditRecord:
+      type: object
+      required: [recordType]
+      properties:
+        recordType:
+          type: string
+          enum: [command, output, control, session_event]
+        commandId: { type: string }
+        commandText: { type: string }
+        outputDataBase64: { type: string }
+        createdAt: { type: string, format: date-time }
+        truncated: { type: boolean }
+        byteCount: { type: integer }
+    AppendSessionAuditRecordsRequest:
+      type: object
+      required: [ownerPodId, ownerInstanceId, records]
+      properties:
+        ownerPodId: { type: string }
+        ownerInstanceId: { type: string }
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppendSessionAuditRecord"
+    SessionAuditRecord:
+      type: object
+      required: [sessionId, userId, hostId, crId, recordType, sequence, createdAt, truncated, byteCount]
+      properties:
+        sessionId: { type: string }
+        userId: { type: string }
+        hostId: { type: string }
+        crId: { type: string }
+        recordType: { type: string }
+        sequence: { type: integer, format: int64 }
+        commandId: { type: string }
+        commandText: { type: string }
+        outputDataBase64: { type: string }
+        createdAt: { type: string, format: date-time }
+        truncated: { type: boolean }
+        byteCount: { type: integer }
+    ListSessionAuditRecordsResponse:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionAuditRecord"
+        nextCursor: { type: string }
+    AuditSessionSummary:
+      type: object
+      required: [sessionId, userId, hostId, crId, connectionType, status, createdAt, lastAuditAt, recordCount, truncated]
+      properties:
+        sessionId: { type: string }
+        userId: { type: string }
+        hostId: { type: string }
+        crId: { type: string }
+        connectionType: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastAuditAt: { type: string, format: date-time }
+        recordCount: { type: integer }
+        truncated: { type: boolean }
+    ListAuditSessionsResponse:
+      type: object
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditSessionSummary"
+        nextCursor: { type: string }
