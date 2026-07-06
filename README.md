@@ -34,6 +34,21 @@ go run ./cmd/server
 The Postgres migration creates `session_audit_records` idempotently when it is
 missing. Existing rows from the former Session Manager-owned table are preserved.
 
+Optional SNS/SQS metadata timeline ingestion:
+
+```bash
+AUDIT_EVENT_CONSUMER_ENABLED=true
+AUDIT_EVENTS_QUEUE_URL=https://sqs.ap-southeast-1.amazonaws.com/123456789012/dendenmushi-audit-events-dev
+AWS_REGION=ap-southeast-1
+```
+
+When enabled, Audit Service polls the configured SQS queue for SNS-delivered
+platform lifecycle events and stores sanitized metadata in `metadata_events`.
+`event_id` is unique, so redeliveries are idempotent. Malformed or forbidden
+payloads are left on the queue for SQS redrive to the configured DLQ. The
+consumer stores metadata only; it never stores tokens, private keys, passwords,
+terminal input/output, command bodies, prompts, or raw model responses.
+
 ## Endpoints
 
 ```http
@@ -41,6 +56,7 @@ GET  /healthz
 GET  /openapi.yaml
 GET  /sessions/audit?userId={userId}&hostId={hostId}&crId={crId}&sessionId={sessionId}
 GET  /sessions/audit/records?sessionId={sessionId}&userId={userId}&hostId={hostId}&crId={crId}&recordType={recordType}
+GET  /events?eventType={eventType}&source={source}&userId={userId}&sessionId={sessionId}&hostId={hostId}&crId={crId}&incidentId={incidentId}&runId={runId}
 POST /sessions/{sessionId}/audit/records
 GET  /sessions/{sessionId}/audit/records
 ```
@@ -68,6 +84,12 @@ When the per-session cap is reached, existing records are preserved, the
 truncating record is marked `truncated=true`, and Proxy Dataplane stops sending
 additional audit output for that session. Command and output bodies must not be
 written to normal application logs.
+
+The metadata event query returns platform lifecycle events newest first. It
+supports `from`, `to`, `limit`, and offset `cursor` query parameters in addition
+to the filters shown above. The endpoint is intended for operations timelines
+and audit correlation; retained SSH command/output records remain under the
+session audit endpoints.
 
 ## Design Notes
 

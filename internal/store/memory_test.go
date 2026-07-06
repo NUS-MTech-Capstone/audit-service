@@ -141,3 +141,69 @@ func TestMemoryStoreListAuditRecordsFiltersCursorAndRetention(t *testing.T) {
 		t.Fatalf("retained records = %#v", records)
 	}
 }
+
+func TestMemoryStoreMetadataEventsAreIdempotentFilterableAndPaginated(t *testing.T) {
+	st := NewMemoryStore()
+	base := time.Date(2026, 7, 6, 1, 0, 0, 0, time.UTC)
+	events := []model.MetadataEvent{
+		{
+			SchemaVersion: model.MetadataEventSchemaVersion,
+			EventID:       "evt-1",
+			EventType:     "SessionCreated",
+			Source:        "session-manager",
+			OccurredAt:    base,
+			UserID:        "user-1",
+			SessionID:     "sess-1",
+			HostID:        "host-1",
+			CRID:          "cr-1",
+			PodID:         "pod-1",
+			InstanceID:    "inst-1",
+		},
+		{
+			SchemaVersion: model.MetadataEventSchemaVersion,
+			EventID:       "evt-2",
+			EventType:     "SessionStarted",
+			Source:        "proxy-controlplane",
+			OccurredAt:    base.Add(time.Minute),
+			UserID:        "user-1",
+			SessionID:     "sess-1",
+			HostID:        "host-1",
+		},
+	}
+	for _, event := range events {
+		if err := st.AppendMetadataEvent(t.Context(), event); err != nil {
+			t.Fatalf("AppendMetadataEvent() error = %v", err)
+		}
+	}
+	events[0].EventType = "Changed"
+	if err := st.AppendMetadataEvent(t.Context(), events[0]); err != nil {
+		t.Fatalf("duplicate AppendMetadataEvent() error = %v", err)
+	}
+
+	got, err := st.ListMetadataEvents(t.Context(), model.ListMetadataEventsFilter{SessionID: "sess-1", Limit: 10})
+	if err != nil {
+		t.Fatalf("ListMetadataEvents() error = %v", err)
+	}
+	if len(got) != 2 || got[0].EventID != "evt-2" || got[1].EventType != "SessionCreated" {
+		t.Fatalf("events = %#v", got)
+	}
+	got, err = st.ListMetadataEvents(t.Context(), model.ListMetadataEventsFilter{
+		Source: "session-manager",
+		From:   base.Add(-time.Second),
+		To:     base.Add(time.Second),
+		Limit:  1,
+	})
+	if err != nil {
+		t.Fatalf("ListMetadataEvents() filtered error = %v", err)
+	}
+	if len(got) != 1 || got[0].EventID != "evt-1" || got[0].PodID != "pod-1" || got[0].InstanceID != "inst-1" {
+		t.Fatalf("filtered events = %#v", got)
+	}
+	got, err = st.ListMetadataEvents(t.Context(), model.ListMetadataEventsFilter{Limit: 1, Offset: 1})
+	if err != nil {
+		t.Fatalf("ListMetadataEvents() cursor error = %v", err)
+	}
+	if len(got) != 1 || got[0].EventID != "evt-1" {
+		t.Fatalf("cursor events = %#v", got)
+	}
+}

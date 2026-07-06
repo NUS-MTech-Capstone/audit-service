@@ -71,6 +71,37 @@ CREATE INDEX IF NOT EXISTS session_audit_records_lookup_idx
 
 CREATE INDEX IF NOT EXISTS session_audit_records_global_lookup_idx
 	ON session_audit_records (created_at DESC, session_id, sequence);
+
+CREATE TABLE IF NOT EXISTS metadata_events (
+	event_id TEXT PRIMARY KEY,
+	schema_version TEXT NOT NULL,
+	event_type TEXT NOT NULL,
+	source TEXT NOT NULL,
+	occurred_at TIMESTAMPTZ NOT NULL,
+	request_id TEXT NOT NULL DEFAULT '',
+	user_id TEXT NOT NULL DEFAULT '',
+	session_id TEXT NOT NULL DEFAULT '',
+	host_id TEXT NOT NULL DEFAULT '',
+	cr_id TEXT NOT NULL DEFAULT '',
+	pod_id TEXT NOT NULL DEFAULT '',
+	instance_id TEXT NOT NULL DEFAULT '',
+	incident_id TEXT NOT NULL DEFAULT '',
+	run_id TEXT NOT NULL DEFAULT '',
+	action TEXT NOT NULL DEFAULT '',
+	mode TEXT NOT NULL DEFAULT '',
+	outcome TEXT NOT NULL DEFAULT '',
+	reason_code TEXT NOT NULL DEFAULT '',
+	plan_hash TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS metadata_events_lookup_idx
+	ON metadata_events (occurred_at DESC, event_type, source);
+
+CREATE INDEX IF NOT EXISTS metadata_events_session_lookup_idx
+	ON metadata_events (session_id, host_id, cr_id, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS metadata_events_incident_lookup_idx
+	ON metadata_events (incident_id, run_id, occurred_at DESC);
 `
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("migrate postgres store: %w", err)
@@ -294,6 +325,85 @@ LIMIT $7 OFFSET $8
 		return nil, fmt.Errorf("list audit sessions: %w", err)
 	}
 	return summaries, nil
+}
+
+func (s *PostgresStore) AppendMetadataEvent(ctx context.Context, event model.MetadataEvent) error {
+	if err := model.ValidateMetadataEvent(event); err != nil {
+		return err
+	}
+	_, err := s.db.ExecContext(ctx, `
+INSERT INTO metadata_events (
+	event_id, schema_version, event_type, source, occurred_at, request_id,
+	user_id, session_id, host_id, cr_id, pod_id, instance_id, incident_id,
+	run_id, action, mode, outcome, reason_code, plan_hash
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+ON CONFLICT (event_id) DO NOTHING
+`, event.EventID, event.SchemaVersion, event.EventType, event.Source, event.OccurredAt.UTC(), event.RequestID,
+		event.UserID, event.SessionID, event.HostID, event.CRID, event.PodID, event.InstanceID, event.IncidentID,
+		event.RunID, event.Action, event.Mode, event.Outcome, event.ReasonCode, event.PlanHash)
+	if err != nil {
+		return fmt.Errorf("append metadata event: %w", err)
+	}
+	return nil
+}
+
+func (s *PostgresStore) ListMetadataEvents(ctx context.Context, filter model.ListMetadataEventsFilter) ([]model.MetadataEvent, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT schema_version, event_id, event_type, source, occurred_at, request_id,
+	user_id, session_id, host_id, cr_id, pod_id, instance_id, incident_id,
+	run_id, action, mode, outcome, reason_code, plan_hash
+FROM metadata_events
+WHERE ($1 = '' OR event_type = $1)
+	AND ($2 = '' OR source = $2)
+	AND ($3 = '' OR user_id = $3)
+	AND ($4 = '' OR session_id = $4)
+	AND ($5 = '' OR host_id = $5)
+	AND ($6 = '' OR cr_id = $6)
+	AND ($7 = '' OR incident_id = $7)
+	AND ($8 = '' OR run_id = $8)
+	AND ($9::timestamptz IS NULL OR occurred_at >= $9)
+	AND ($10::timestamptz IS NULL OR occurred_at <= $10)
+ORDER BY occurred_at DESC, event_id
+LIMIT $11 OFFSET $12
+`, filter.EventType, filter.Source, filter.UserID, filter.SessionID, filter.HostID, filter.CRID,
+		filter.IncidentID, filter.RunID, nullableTime(filter.From), nullableTime(filter.To), filter.Limit, filter.Offset,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list metadata events: %w", err)
+	}
+	defer rows.Close()
+	events := make([]model.MetadataEvent, 0)
+	for rows.Next() {
+		var event model.MetadataEvent
+		if err := rows.Scan(
+			&event.SchemaVersion,
+			&event.EventID,
+			&event.EventType,
+			&event.Source,
+			&event.OccurredAt,
+			&event.RequestID,
+			&event.UserID,
+			&event.SessionID,
+			&event.HostID,
+			&event.CRID,
+			&event.PodID,
+			&event.InstanceID,
+			&event.IncidentID,
+			&event.RunID,
+			&event.Action,
+			&event.Mode,
+			&event.Outcome,
+			&event.ReasonCode,
+			&event.PlanHash,
+		); err != nil {
+			return nil, fmt.Errorf("scan metadata event: %w", err)
+		}
+		events = append(events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list metadata events: %w", err)
+	}
+	return events, nil
 }
 
 func (s *PostgresStore) prune(ctx context.Context, executor queryExecutor, retention time.Duration) error {

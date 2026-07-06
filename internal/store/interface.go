@@ -12,4 +12,6 @@ type Store interface {
 	ListSessionAuditRecords(context.Context, string, model.ListSessionAuditRecordsFilter, time.Duration) ([]model.SessionAuditRecord, error)
 	ListAuditRecords(context.Context, model.ListAuditRecordsFilter, time.Duration) ([]model.SessionAuditRecord, error)
 	ListAuditSessions(context.Context, model.ListAuditSessionsFilter, time.Duration) ([]model.AuditSessionSummary, error)
+	AppendMetadataEvent(context.Context, model.MetadataEvent) error
+	ListMetadataEvents(context.Context, model.ListMetadataEventsFilter) ([]model.MetadataEvent, error)
 }

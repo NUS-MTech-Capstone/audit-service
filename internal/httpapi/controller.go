@@ -79,6 +79,39 @@ func (s *Server) listAuditRecords(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (s *Server) listMetadataEvents(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	from, err := parseOptionalTime(query.Get("from"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "from must be RFC3339")
+		return
+	}
+	to, err := parseOptionalTime(query.Get("to"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "to must be RFC3339")
+		return
+	}
+	response, err := s.svc.ListMetadataEvents(r.Context(), model.ListMetadataEventsFilter{
+		EventType:  query.Get("eventType"),
+		Source:     query.Get("source"),
+		UserID:     query.Get("userId"),
+		SessionID:  query.Get("sessionId"),
+		HostID:     query.Get("hostId"),
+		CRID:       query.Get("crId"),
+		IncidentID: query.Get("incidentId"),
+		RunID:      query.Get("runId"),
+		From:       from,
+		To:         to,
+		Limit:      parsePositiveInt(query.Get("limit"), 100),
+		Offset:     parsePositiveInt(query.Get("cursor"), 0),
+	})
+	if err != nil {
+		writeError(w, statusForError(err), err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 func (s *Server) getSessionAudit(w http.ResponseWriter, r *http.Request) {
 	id, action := parseSessionPath(r.URL.Path)
 	if action != "audit/records" {

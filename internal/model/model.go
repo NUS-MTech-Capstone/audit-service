@@ -105,3 +105,47 @@ type ListAuditSessionsResponse struct {
 	Sessions   []AuditSessionSummary `json:"sessions"`
 	NextCursor string                `json:"nextCursor,omitempty"`
 }
+
+const MetadataEventSchemaVersion = "2026-07-ops-timeline.v1"
+
+type MetadataEvent struct {
+	SchemaVersion string    `json:"schemaVersion"`
+	EventID       string    `json:"eventId"`
+	EventType     string    `json:"eventType"`
+	Source        string    `json:"source"`
+	OccurredAt    time.Time `json:"occurredAt"`
+	RequestID     string    `json:"requestId,omitempty"`
+	UserID        string    `json:"userId,omitempty"`
+	SessionID     string    `json:"sessionId,omitempty"`
+	HostID        string    `json:"hostId,omitempty"`
+	CRID          string    `json:"crId,omitempty"`
+	PodID         string    `json:"podId,omitempty"`
+	InstanceID    string    `json:"instanceId,omitempty"`
+	IncidentID    string    `json:"incidentId,omitempty"`
+	RunID         string    `json:"runId,omitempty"`
+	Action        string    `json:"action,omitempty"`
+	Mode          string    `json:"mode,omitempty"`
+	Outcome       string    `json:"outcome,omitempty"`
+	ReasonCode    string    `json:"reasonCode,omitempty"`
+	PlanHash      string    `json:"planHash,omitempty"`
+}
+
+type ListMetadataEventsFilter struct {
+	EventType  string
+	Source     string
+	UserID     string
+	SessionID  string
+	HostID     string
+	CRID       string
+	IncidentID string
+	RunID      string
+	From       time.Time
+	To         time.Time
+	Limit      int
+	Offset     int
+}
+
+type ListMetadataEventsResponse struct {
+	Events     []MetadataEvent `json:"events"`
+	NextCursor string          `json:"nextCursor,omitempty"`
+}

@@ -74,6 +74,32 @@ func TestSessionAuditHTTPValidationAndUnknownRoutes(t *testing.T) {
 	doJSON(t, server, http.MethodGet, "/sessions/audit/records?recordType=bad", ``, http.StatusBadRequest)
 }
 
+func TestMetadataEventsHTTPList(t *testing.T) {
+	server := newHTTPTestServer()
+	err := server.svc.AppendMetadataEvent(t.Context(), model.MetadataEvent{
+		SchemaVersion: model.MetadataEventSchemaVersion,
+		EventID:       "evt-1",
+		EventType:     "SessionCreated",
+		Source:        "session-manager",
+		OccurredAt:    time.Date(2026, 7, 6, 1, 0, 0, 0, time.UTC),
+		UserID:        "user-1",
+		SessionID:     "sess-1",
+		HostID:        "host-1",
+		CRID:          "cr-1",
+		PodID:         "pod-1",
+		InstanceID:    "inst-1",
+	})
+	if err != nil {
+		t.Fatalf("AppendMetadataEvent() error = %v", err)
+	}
+	response := doJSON(t, server, http.MethodGet, "/events?eventType=SessionCreated&source=session-manager&sessionId=sess-1&limit=10", ``, http.StatusOK)
+	body := response.Body.String()
+	if !strings.Contains(body, `"eventId":"evt-1"`) || !strings.Contains(body, `"podId":"pod-1"`) || !strings.Contains(body, `"instanceId":"inst-1"`) {
+		t.Fatalf("events body = %s", body)
+	}
+	doJSON(t, server, http.MethodGet, "/events?from=bad", ``, http.StatusBadRequest)
+}
+
 func doJSON(t *testing.T, server *Server, method, path, body string, wantStatus int) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()

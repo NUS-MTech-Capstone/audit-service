@@ -15,6 +15,7 @@ import (
 type MemoryStore struct {
 	mu      sync.Mutex
 	records map[string][]model.SessionAuditRecord
+	events  map[string]model.MetadataEvent
 	now     func() time.Time
 }
 
@@ -23,6 +24,7 @@ var _ Store = (*MemoryStore)(nil)
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
 		records: make(map[string][]model.SessionAuditRecord),
+		events:  make(map[string]model.MetadataEvent),
 		now:     time.Now,
 	}
 }
@@ -213,6 +215,73 @@ func (s *MemoryStore) ListAuditSessions(
 		end = len(summaries)
 	}
 	return append([]model.AuditSessionSummary(nil), summaries[filter.Offset:end]...), nil
+}
+
+func (s *MemoryStore) AppendMetadataEvent(_ context.Context, event model.MetadataEvent) error {
+	if err := model.ValidateMetadataEvent(event); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	event.OccurredAt = event.OccurredAt.UTC()
+	if _, exists := s.events[event.EventID]; exists {
+		return nil
+	}
+	s.events[event.EventID] = event
+	return nil
+}
+
+func (s *MemoryStore) ListMetadataEvents(_ context.Context, filter model.ListMetadataEventsFilter) ([]model.MetadataEvent, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	events := make([]model.MetadataEvent, 0)
+	for _, event := range s.events {
+		if filter.EventType != "" && event.EventType != filter.EventType {
+			continue
+		}
+		if filter.Source != "" && event.Source != filter.Source {
+			continue
+		}
+		if filter.UserID != "" && event.UserID != filter.UserID {
+			continue
+		}
+		if filter.SessionID != "" && event.SessionID != filter.SessionID {
+			continue
+		}
+		if filter.HostID != "" && event.HostID != filter.HostID {
+			continue
+		}
+		if filter.CRID != "" && event.CRID != filter.CRID {
+			continue
+		}
+		if filter.IncidentID != "" && event.IncidentID != filter.IncidentID {
+			continue
+		}
+		if filter.RunID != "" && event.RunID != filter.RunID {
+			continue
+		}
+		if !filter.From.IsZero() && event.OccurredAt.Before(filter.From) {
+			continue
+		}
+		if !filter.To.IsZero() && event.OccurredAt.After(filter.To) {
+			continue
+		}
+		events = append(events, event)
+	}
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].OccurredAt.Equal(events[j].OccurredAt) {
+			return events[i].EventID < events[j].EventID
+		}
+		return events[i].OccurredAt.After(events[j].OccurredAt)
+	})
+	if filter.Offset > len(events) {
+		return []model.MetadataEvent{}, nil
+	}
+	end := filter.Offset + filter.Limit
+	if filter.Limit <= 0 || end > len(events) {
+		end = len(events)
+	}
+	return append([]model.MetadataEvent(nil), events[filter.Offset:end]...), nil
 }
 
 func (s *MemoryStore) prune(retention time.Duration) {

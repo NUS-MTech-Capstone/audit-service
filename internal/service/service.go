@@ -116,6 +116,28 @@ func (s *Service) ListAuditSessions(
 	return response, nil
 }
 
+func (s *Service) AppendMetadataEvent(ctx context.Context, event model.MetadataEvent) error {
+	return s.store.AppendMetadataEvent(ctx, event)
+}
+
+func (s *Service) ListMetadataEvents(
+	ctx context.Context,
+	filter model.ListMetadataEventsFilter,
+) (model.ListMetadataEventsResponse, error) {
+	if filter.Limit <= 0 || filter.Limit > 500 {
+		filter.Limit = 100
+	}
+	events, err := s.store.ListMetadataEvents(ctx, filter)
+	if err != nil {
+		return model.ListMetadataEventsResponse{}, err
+	}
+	response := model.ListMetadataEventsResponse{Events: events}
+	if len(events) == filter.Limit {
+		response.NextCursor = strconv.Itoa(filter.Offset + len(events))
+	}
+	return response, nil
+}
+
 func classifySessionManagerError(err error) error {
 	if errors.Is(err, sessionmanager.ErrNotFound) {
 		return store.ErrNotFound

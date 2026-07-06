@@ -44,6 +44,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListAuditSessionsResponse"
+  /events:
+    get:
+      summary: List sanitized lifecycle metadata events
+      parameters:
+        - in: query
+          name: eventType
+          schema: { type: string }
+        - in: query
+          name: source
+          schema: { type: string }
+        - in: query
+          name: userId
+          schema: { type: string }
+        - in: query
+          name: sessionId
+          schema: { type: string }
+        - in: query
+          name: hostId
+          schema: { type: string }
+        - in: query
+          name: crId
+          schema: { type: string }
+        - in: query
+          name: incidentId
+          schema: { type: string }
+        - in: query
+          name: runId
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500 }
+        - in: query
+          name: cursor
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Sanitized metadata events sorted newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListMetadataEventsResponse"
   /sessions/audit/records:
     get:
       summary: List retained SSH audit records across sessions
@@ -203,4 +250,36 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AuditSessionSummary"
+        nextCursor: { type: string }
+    MetadataEvent:
+      type: object
+      required: [schemaVersion, eventId, eventType, source, occurredAt]
+      properties:
+        schemaVersion: { type: string }
+        eventId: { type: string }
+        eventType: { type: string }
+        source: { type: string }
+        occurredAt: { type: string, format: date-time }
+        requestId: { type: string }
+        userId: { type: string }
+        sessionId: { type: string }
+        hostId: { type: string }
+        crId: { type: string }
+        podId: { type: string }
+        instanceId: { type: string }
+        incidentId: { type: string }
+        runId: { type: string }
+        action: { type: string }
+        mode: { type: string }
+        outcome: { type: string }
+        reasonCode: { type: string }
+        planHash: { type: string }
+    ListMetadataEventsResponse:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetadataEvent"
         nextCursor: { type: string }
