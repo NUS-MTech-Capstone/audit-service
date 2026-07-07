@@ -61,6 +61,10 @@ POST /sessions/{sessionId}/audit/records
 GET  /sessions/{sessionId}/audit/records
 ```
 
+Business endpoints require `x-api-version: 1`. `GET /healthz` and
+`GET /openapi.yaml` are exempt so probes and spec reads do not need custom
+headers.
+
 Proxy Dataplane appends audit records with the assigned `ownerPodId` and
 `ownerInstanceId`. Audit Service validates that owner pair against Session
 Manager `GET /sessions/{sessionId}` before storing records.
