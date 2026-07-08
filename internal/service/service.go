@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/NUS-MTech-Capstone/audit-service/internal/model"
+	"github.com/NUS-MTech-Capstone/audit-service/internal/observability"
 	"github.com/NUS-MTech-Capstone/audit-service/internal/sessionmanager"
 	"github.com/NUS-MTech-Capstone/audit-service/internal/store"
 )
@@ -41,12 +43,61 @@ func (s *Service) AppendSessionAuditRecords(
 ) ([]model.SessionAuditRecord, error) {
 	session, err := s.sessionManager.GetSession(ctx, sessionID)
 	if err != nil {
+		slog.WarnContext(ctx, "SessionAuditAppendRejected",
+			"requestId", observability.RequestID(ctx),
+			"sessionId", sessionID,
+			"ownerPodId", req.OwnerPodID,
+			"ownerInstanceId", req.OwnerInstanceID,
+			"recordCount", len(req.Records),
+			"reason", "session_lookup_failed",
+			"error", err,
+		)
 		return nil, classifySessionManagerError(err)
 	}
 	if session.OwnerPodID != req.OwnerPodID || session.OwnerInstanceID != req.OwnerInstanceID {
+		slog.WarnContext(ctx, "SessionAuditAppendRejected",
+			"requestId", observability.RequestID(ctx),
+			"sessionId", sessionID,
+			"userId", session.UserID,
+			"hostId", session.HostID,
+			"crId", session.CRID,
+			"ownerPodId", req.OwnerPodID,
+			"ownerInstanceId", req.OwnerInstanceID,
+			"sessionOwnerPodId", session.OwnerPodID,
+			"sessionOwnerInstanceId", session.OwnerInstanceID,
+			"recordCount", len(req.Records),
+			"reason", "owner_mismatch",
+		)
 		return nil, ErrOwnerMismatch
 	}
-	return s.store.AppendSessionAuditRecords(ctx, session, req, s.auditRetention, s.auditMaxBytes)
+	records, err := s.store.AppendSessionAuditRecords(ctx, session, req, s.auditRetention, s.auditMaxBytes)
+	if err != nil {
+		slog.WarnContext(ctx, "SessionAuditAppendRejected",
+			"requestId", observability.RequestID(ctx),
+			"sessionId", sessionID,
+			"userId", session.UserID,
+			"hostId", session.HostID,
+			"crId", session.CRID,
+			"ownerPodId", req.OwnerPodID,
+			"ownerInstanceId", req.OwnerInstanceID,
+			"recordCount", len(req.Records),
+			"reason", "store_failed",
+			"error", err,
+		)
+		return nil, err
+	}
+	slog.InfoContext(ctx, "SessionAuditAppendAccepted",
+		"requestId", observability.RequestID(ctx),
+		"sessionId", sessionID,
+		"userId", session.UserID,
+		"hostId", session.HostID,
+		"crId", session.CRID,
+		"ownerPodId", req.OwnerPodID,
+		"ownerInstanceId", req.OwnerInstanceID,
+		"recordCount", len(req.Records),
+		"appendedCount", len(records),
+	)
+	return records, nil
 }
 
 func (s *Service) ListSessionAuditRecords(

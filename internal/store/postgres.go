@@ -172,7 +172,7 @@ WHERE session_id = $1
 		record.Sequence = sequence
 		outputData, err := base64.StdEncoding.DecodeString(record.OutputDataBase64)
 		if record.OutputDataBase64 == "" {
-			outputData = nil
+			outputData = []byte{}
 			err = nil
 		}
 		if err != nil {

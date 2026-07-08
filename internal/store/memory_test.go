@@ -63,6 +63,34 @@ func TestMemoryStoreSessionAuditAppendListAndCap(t *testing.T) {
 	}
 }
 
+func TestMemoryStoreListsLifecycleOnlyAuditSession(t *testing.T) {
+	st := NewMemoryStore()
+	session := model.Session{
+		SessionID:      "sess-life",
+		UserID:         "user-1",
+		HostID:         "host-1",
+		CRID:           "cr-1",
+		ConnectionType: "ssh",
+		Status:         "ACTIVE",
+	}
+	_, err := st.AppendSessionAuditRecords(t.Context(), session, model.AppendSessionAuditRecordsRequest{
+		Records: []model.AppendSessionAuditRecord{
+			{RecordType: model.AuditRecordSessionEvent, CommandText: "session started", ByteCount: len("session started")},
+		},
+	}, 7*24*time.Hour, 1024)
+	if err != nil {
+		t.Fatalf("AppendSessionAuditRecords() lifecycle error = %v", err)
+	}
+
+	summaries, err := st.ListAuditSessions(t.Context(), model.ListAuditSessionsFilter{HostID: "host-1", Limit: 10}, 7*24*time.Hour)
+	if err != nil {
+		t.Fatalf("ListAuditSessions() error = %v", err)
+	}
+	if len(summaries) != 1 || summaries[0].SessionID != "sess-life" || summaries[0].RecordCount != 1 {
+		t.Fatalf("summaries = %#v", summaries)
+	}
+}
+
 func TestMemoryStoreRejectsInvalidAuditRecords(t *testing.T) {
 	st := NewMemoryStore()
 	session := model.Session{SessionID: "sess-1"}
