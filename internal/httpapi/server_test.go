@@ -71,7 +71,9 @@ func TestSessionAuditHTTPValidationAndUnknownRoutes(t *testing.T) {
 	doJSON(t, server, http.MethodGet, "/sessions/sess-1/unknown", ``, http.StatusNotFound)
 	doJSON(t, server, http.MethodPost, "/sessions/sess-1/unknown", `{}`, http.StatusNotFound)
 	doJSON(t, server, http.MethodGet, "/sessions/audit?from=bad", ``, http.StatusBadRequest)
+	doJSON(t, server, http.MethodGet, "/sessions/audit/records?to=bad", ``, http.StatusBadRequest)
 	doJSON(t, server, http.MethodGet, "/sessions/audit/records?recordType=bad", ``, http.StatusBadRequest)
+	doJSON(t, server, http.MethodGet, "/sessions/sess-1/audit/records?cursor=bad", ``, http.StatusBadRequest)
 }
 
 func TestMetadataEventsHTTPList(t *testing.T) {
