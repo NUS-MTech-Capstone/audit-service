@@ -165,8 +165,7 @@ WHERE session_id = $1
 			if remaining < 0 {
 				remaining = 0
 			}
-			truncateAuditRecord(&record, remaining)
-			addBytes = remaining
+			addBytes = truncateAuditRecord(&record, remaining)
 		}
 		sequence++
 		record.Sequence = sequence

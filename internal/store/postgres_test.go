@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/NUS-MTech-Capstone/audit-service/internal/model"
 )
@@ -62,6 +63,9 @@ ON CONFLICT (session_id) DO NOTHING
 	}
 	if len(appended) != 1 || appended[0].Sequence != 2 || !appended[0].Truncated {
 		t.Fatalf("second appended batch = %#v", appended)
+	}
+	if !utf8.ValidString(appended[0].CommandText) || len([]byte(appended[0].CommandText)) > 21 {
+		t.Fatalf("truncated command is not valid bounded UTF-8: %q", appended[0].CommandText)
 	}
 	records, err := st.ListSessionAuditRecords(t.Context(), session.SessionID, model.ListSessionAuditRecordsFilter{Limit: 10}, time.Hour)
 	if err != nil {
