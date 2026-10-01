@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/NUS-MTech-Capstone/audit-service/internal/model"
 )
@@ -60,6 +61,21 @@ func TestMemoryStoreSessionAuditAppendListAndCap(t *testing.T) {
 	}
 	if len(summaries) != 1 || summaries[0].RecordCount != 3 || !summaries[0].Truncated {
 		t.Fatalf("summaries = %#v", summaries)
+	}
+}
+
+func TestTruncateAuditRecordPreservesUTF8(t *testing.T) {
+	record := model.SessionAuditRecord{
+		RecordType:  model.AuditRecordCommand,
+		CommandText: "printf 'こんにちは'",
+	}
+
+	retained := truncateAuditRecord(&record, 21)
+	if !record.Truncated || !utf8.ValidString(record.CommandText) {
+		t.Fatalf("truncated record = %#v", record)
+	}
+	if retained != len([]byte(record.CommandText)) || retained > 21 {
+		t.Fatalf("retained bytes = %d, command = %q", retained, record.CommandText)
 	}
 }
 

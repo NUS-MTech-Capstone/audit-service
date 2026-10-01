@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/NUS-MTech-Capstone/audit-service/internal/model"
 )
@@ -51,18 +52,34 @@ ON CONFLICT (session_id) DO NOTHING
 	if len(appended) != 1 || appended[0].Sequence != 1 {
 		t.Fatalf("appended = %#v", appended)
 	}
+	appended, err = st.AppendSessionAuditRecords(t.Context(), session, model.AppendSessionAuditRecordsRequest{
+		Records: []model.AppendSessionAuditRecord{
+			{RecordType: model.AuditRecordCommand, CommandID: "cmd-2", CommandText: "printf 'こんにちは'"},
+			{RecordType: model.AuditRecordOutput, CommandID: "cmd-2", OutputDataBase64: "b2sK"},
+		},
+	}, time.Hour, 24)
+	if err != nil {
+		t.Fatalf("AppendSessionAuditRecords(second batch) error = %v", err)
+	}
+	if len(appended) != 1 || appended[0].Sequence != 2 || !appended[0].Truncated {
+		t.Fatalf("second appended batch = %#v", appended)
+	}
+	if !utf8.ValidString(appended[0].CommandText) || len([]byte(appended[0].CommandText)) > 21 {
+		t.Fatalf("truncated command is not valid bounded UTF-8: %q", appended[0].CommandText)
+	}
 	records, err := st.ListSessionAuditRecords(t.Context(), session.SessionID, model.ListSessionAuditRecordsFilter{Limit: 10}, time.Hour)
 	if err != nil {
 		t.Fatalf("ListSessionAuditRecords() error = %v", err)
 	}
-	if len(records) != 1 || records[0].CommandText != "pwd" {
+	if len(records) != 2 || records[0].CommandText != "pwd" ||
+		records[1].Sequence != 2 || !records[1].Truncated {
 		t.Fatalf("records = %#v", records)
 	}
 	summaries, err := st.ListAuditSessions(t.Context(), model.ListAuditSessionsFilter{SessionID: session.SessionID, Limit: 10}, time.Hour)
 	if err != nil {
 		t.Fatalf("ListAuditSessions() error = %v", err)
 	}
-	if len(summaries) != 1 || summaries[0].RecordCount != 1 {
+	if len(summaries) != 1 || summaries[0].RecordCount != 2 || !summaries[0].Truncated {
 		t.Fatalf("summaries = %#v", summaries)
 	}
 	globalRecords, err := st.ListAuditRecords(t.Context(), model.ListAuditRecordsFilter{
@@ -73,7 +90,7 @@ ON CONFLICT (session_id) DO NOTHING
 	if err != nil {
 		t.Fatalf("ListAuditRecords() error = %v", err)
 	}
-	if len(globalRecords) != 1 || globalRecords[0].CommandText != "pwd" {
+	if len(globalRecords) != 2 || globalRecords[1].CommandText != "pwd" {
 		t.Fatalf("globalRecords = %#v", globalRecords)
 	}
 }

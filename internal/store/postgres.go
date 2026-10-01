@@ -143,7 +143,7 @@ WHERE session_id = $1
 	if err := tx.QueryRowContext(ctx, `
 SELECT COALESCE(SUM(
 	CASE
-		WHEN record_type = $2 THEN octet_length(command_text::bytea)
+		WHEN record_type = $2 THEN octet_length(command_text)
 		WHEN record_type = $3 THEN octet_length(output_data)
 		ELSE 0
 	END
@@ -165,8 +165,7 @@ WHERE session_id = $1
 			if remaining < 0 {
 				remaining = 0
 			}
-			truncateAuditRecord(&record, remaining)
-			addBytes = remaining
+			addBytes = truncateAuditRecord(&record, remaining)
 		}
 		sequence++
 		record.Sequence = sequence

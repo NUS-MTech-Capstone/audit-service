@@ -8,6 +8,7 @@ import (
 	"sort"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/NUS-MTech-Capstone/audit-service/internal/model"
 )
@@ -59,8 +60,7 @@ func (s *MemoryStore) AppendSessionAuditRecords(
 			if remaining < 0 {
 				remaining = 0
 			}
-			truncateAuditRecord(&record, remaining)
-			addBytes = remaining
+			addBytes = truncateAuditRecord(&record, remaining)
 		}
 		sequence++
 		record.Sequence = sequence
@@ -365,18 +365,26 @@ func auditByteTotal(records []model.SessionAuditRecord) int {
 	return total
 }
 
-func truncateAuditRecord(record *model.SessionAuditRecord, remaining int) {
+func truncateAuditRecord(record *model.SessionAuditRecord, remaining int) int {
 	record.Truncated = true
 	switch record.RecordType {
 	case model.AuditRecordCommand:
 		data := []byte(record.CommandText)
 		if remaining < len(data) {
-			record.CommandText = string(data[:remaining])
+			end := remaining
+			for end > 0 && !utf8.Valid(data[:end]) {
+				end--
+			}
+			record.CommandText = string(data[:end])
 		}
+		return len([]byte(record.CommandText))
 	case model.AuditRecordOutput:
 		data, err := base64.StdEncoding.DecodeString(record.OutputDataBase64)
 		if err == nil && remaining < len(data) {
 			record.OutputDataBase64 = base64.StdEncoding.EncodeToString(data[:remaining])
+			return remaining
 		}
+		return len(data)
 	}
+	return 0
 }
