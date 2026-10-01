@@ -21,6 +21,9 @@ Postgres:
 make run-postgres
 ```
 
+The repository-owned Compose fixture and CI integration job use PostgreSQL 16,
+matching the deployed RDS major version.
+
 For an externally managed database:
 
 ```bash
@@ -89,7 +92,9 @@ SESSION_AUDIT_MAX_BYTES_PER_SESSION=16777216
 When the per-session cap is reached, existing records are preserved, the
 truncating record is marked `truncated=true`, and Proxy Dataplane stops sending
 additional audit output for that session. Command and output bodies must not be
-written to normal application logs.
+written to normal application logs. PostgreSQL byte accounting uses the
+encoded byte length of command text and output data across append batches, so
+UTF-8 commands are capped consistently without casting text to binary values.
 
 The metadata event query returns platform lifecycle events newest first. It
 supports `from`, `to`, `limit`, and offset `cursor` query parameters in addition
