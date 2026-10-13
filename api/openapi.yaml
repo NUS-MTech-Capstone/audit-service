@@ -1,286 +1,512 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: DenDenMushi Audit Service API
   version: 0.1.0
-  description: Retained audit and metadata event API. Business endpoints require the `x-api-version: 1` header; probe and OpenAPI endpoints are exempt.
+  description: 'Retained audit and metadata event API. Business endpoints require the `x-api-version: 1` header;
+    probe and OpenAPI endpoints are exempt.'
 paths:
   /healthz:
     get:
       summary: Liveness check
       responses:
-        "200":
-          description: Service is healthy.
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+      security: []
   /sessions/audit:
     get:
       summary: List sessions with retained command/output audit records
       parameters:
-        - in: query
-          name: userId
-          schema: { type: string }
-        - in: query
-          name: hostId
-          schema: { type: string }
-        - in: query
-          name: crId
-          schema: { type: string }
-        - in: query
-          name: sessionId
-          schema: { type: string }
-        - in: query
-          name: from
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          schema: { type: string, format: date-time }
-        - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 200 }
-        - in: query
-          name: cursor
-          schema: { type: integer, minimum: 0 }
+      - in: query
+        name: userId
+        schema:
+          type: string
+      - in: query
+        name: hostId
+        schema:
+          type: string
+      - in: query
+        name: crId
+        schema:
+          type: string
+      - in: query
+        name: sessionId
+        schema:
+          type: string
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+          minimum: 0
+      - $ref: '#/components/parameters/APIVersion'
       responses:
-        "200":
+        '200':
           description: Matching audited sessions.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListAuditSessionsResponse"
+                $ref: '#/components/schemas/ListAuditSessionsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
   /events:
     get:
       summary: List sanitized lifecycle metadata events
       parameters:
-        - in: query
-          name: eventType
-          schema: { type: string }
-        - in: query
-          name: source
-          schema: { type: string }
-        - in: query
-          name: userId
-          schema: { type: string }
-        - in: query
-          name: sessionId
-          schema: { type: string }
-        - in: query
-          name: hostId
-          schema: { type: string }
-        - in: query
-          name: crId
-          schema: { type: string }
-        - in: query
-          name: incidentId
-          schema: { type: string }
-        - in: query
-          name: runId
-          schema: { type: string }
-        - in: query
-          name: from
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          schema: { type: string, format: date-time }
-        - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 500 }
-        - in: query
-          name: cursor
-          schema: { type: integer, minimum: 0 }
+      - in: query
+        name: eventType
+        schema:
+          type: string
+      - in: query
+        name: source
+        schema:
+          type: string
+      - in: query
+        name: userId
+        schema:
+          type: string
+      - in: query
+        name: sessionId
+        schema:
+          type: string
+      - in: query
+        name: hostId
+        schema:
+          type: string
+      - in: query
+        name: crId
+        schema:
+          type: string
+      - in: query
+        name: incidentId
+        schema:
+          type: string
+      - in: query
+        name: runId
+        schema:
+          type: string
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+          minimum: 0
+      - $ref: '#/components/parameters/APIVersion'
       responses:
-        "200":
+        '200':
           description: Sanitized metadata events sorted newest first.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListMetadataEventsResponse"
+                $ref: '#/components/schemas/ListMetadataEventsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
   /sessions/audit/records:
     get:
       summary: List retained SSH audit records across sessions
       parameters:
-        - in: query
-          name: sessionId
-          schema: { type: string }
-        - in: query
-          name: userId
-          schema: { type: string }
-        - in: query
-          name: hostId
-          schema: { type: string }
-        - in: query
-          name: crId
-          schema: { type: string }
-        - in: query
-          name: recordType
-          schema:
-            type: string
-            enum: [command, output, control, session_event]
-        - in: query
-          name: from
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          schema: { type: string, format: date-time }
-        - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 500 }
-        - in: query
-          name: cursor
-          schema: { type: integer, minimum: 0 }
+      - in: query
+        name: sessionId
+        schema:
+          type: string
+      - in: query
+        name: userId
+        schema:
+          type: string
+      - in: query
+        name: hostId
+        schema:
+          type: string
+      - in: query
+        name: crId
+        schema:
+          type: string
+      - in: query
+        name: recordType
+        schema:
+          type: string
+          enum:
+          - command
+          - output
+          - control
+          - session_event
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+          minimum: 0
+      - $ref: '#/components/parameters/APIVersion'
       responses:
-        "200":
+        '200':
           description: Matching retained SSH audit records sorted newest first.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListSessionAuditRecordsResponse"
+                $ref: '#/components/schemas/ListSessionAuditRecordsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
   /sessions/{sessionId}/audit/records:
     post:
       summary: Append command/output audit records for the owning dataplane process
       parameters:
-        - $ref: "#/components/parameters/SessionId"
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/APIVersion'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AppendSessionAuditRecordsRequest"
+              $ref: '#/components/schemas/AppendSessionAuditRecordsRequest'
       responses:
-        "201":
+        '201':
           description: Accepted audit records.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListSessionAuditRecordsResponse"
-        "400":
+                $ref: '#/components/schemas/ListSessionAuditRecordsResponse'
+        '400':
           description: Invalid request or owner mismatch.
-        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
           description: Session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     get:
       summary: List retained command/output audit records for a session
       parameters:
-        - $ref: "#/components/parameters/SessionId"
-        - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 500 }
-        - in: query
-          name: cursor
-          schema: { type: integer, minimum: 0 }
+      - $ref: '#/components/parameters/SessionId'
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+          minimum: 0
+      - $ref: '#/components/parameters/APIVersion'
       responses:
-        "200":
+        '200':
           description: Retained audit records.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListSessionAuditRecordsResponse"
-        "404":
+                $ref: '#/components/schemas/ListSessionAuditRecordsResponse'
+        '404':
           description: Session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+  /openapi.yaml:
+    get:
+      summary: Checked-in OpenAPI specification
+      responses:
+        '200':
+          description: Exact api/openapi.yaml bytes.
+          content:
+            application/yaml:
+              schema:
+                type: string
+      security: []
 components:
   parameters:
     SessionId:
       in: path
       name: sessionId
       required: true
-      schema: { type: string }
+      schema:
+        type: string
+    APIVersion:
+      name: x-api-version
+      in: header
+      required: true
+      schema:
+        type: string
+        enum:
+        - '1'
+      description: Required on business endpoints. Missing or unsupported values return 400.
   schemas:
     AppendSessionAuditRecord:
       type: object
-      required: [recordType]
+      required:
+      - recordType
       properties:
         recordType:
           type: string
-          enum: [command, output, control, session_event]
-        commandId: { type: string }
-        commandText: { type: string }
-        outputDataBase64: { type: string }
-        createdAt: { type: string, format: date-time }
-        truncated: { type: boolean }
-        byteCount: { type: integer }
+          enum:
+          - command
+          - output
+          - control
+          - session_event
+        commandId:
+          type: string
+        commandText:
+          type: string
+        outputDataBase64:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        truncated:
+          type: boolean
+        byteCount:
+          type: integer
     AppendSessionAuditRecordsRequest:
       type: object
-      required: [ownerPodId, ownerInstanceId, records]
+      required:
+      - ownerPodId
+      - ownerInstanceId
+      - records
       properties:
-        ownerPodId: { type: string }
-        ownerInstanceId: { type: string }
+        ownerPodId:
+          type: string
+        ownerInstanceId:
+          type: string
         records:
           type: array
           items:
-            $ref: "#/components/schemas/AppendSessionAuditRecord"
+            $ref: '#/components/schemas/AppendSessionAuditRecord'
     SessionAuditRecord:
       type: object
-      required: [sessionId, userId, hostId, crId, recordType, sequence, createdAt, truncated, byteCount]
+      required:
+      - sessionId
+      - userId
+      - hostId
+      - crId
+      - recordType
+      - sequence
+      - createdAt
+      - truncated
+      - byteCount
       properties:
-        sessionId: { type: string }
-        userId: { type: string }
-        hostId: { type: string }
-        crId: { type: string }
-        recordType: { type: string }
-        sequence: { type: integer, format: int64 }
-        commandId: { type: string }
-        commandText: { type: string }
-        outputDataBase64: { type: string }
-        createdAt: { type: string, format: date-time }
-        truncated: { type: boolean }
-        byteCount: { type: integer }
+        sessionId:
+          type: string
+        userId:
+          type: string
+        hostId:
+          type: string
+        crId:
+          type: string
+        recordType:
+          type: string
+        sequence:
+          type: integer
+          format: int64
+        commandId:
+          type: string
+        commandText:
+          type: string
+        outputDataBase64:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        truncated:
+          type: boolean
+        byteCount:
+          type: integer
     ListSessionAuditRecordsResponse:
       type: object
-      required: [records]
+      required:
+      - records
       properties:
         records:
           type: array
           items:
-            $ref: "#/components/schemas/SessionAuditRecord"
-        nextCursor: { type: string }
+            $ref: '#/components/schemas/SessionAuditRecord'
+        nextCursor:
+          type: string
     AuditSessionSummary:
       type: object
-      required: [sessionId, userId, hostId, crId, connectionType, status, createdAt, lastAuditAt, recordCount, truncated]
+      required:
+      - sessionId
+      - userId
+      - hostId
+      - crId
+      - connectionType
+      - status
+      - createdAt
+      - lastAuditAt
+      - recordCount
+      - truncated
       properties:
-        sessionId: { type: string }
-        userId: { type: string }
-        hostId: { type: string }
-        crId: { type: string }
-        connectionType: { type: string }
-        status: { type: string }
-        createdAt: { type: string, format: date-time }
-        lastAuditAt: { type: string, format: date-time }
-        recordCount: { type: integer }
-        truncated: { type: boolean }
+        sessionId:
+          type: string
+        userId:
+          type: string
+        hostId:
+          type: string
+        crId:
+          type: string
+        connectionType:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastAuditAt:
+          type: string
+          format: date-time
+        recordCount:
+          type: integer
+        truncated:
+          type: boolean
     ListAuditSessionsResponse:
       type: object
-      required: [sessions]
+      required:
+      - sessions
       properties:
         sessions:
           type: array
           items:
-            $ref: "#/components/schemas/AuditSessionSummary"
-        nextCursor: { type: string }
+            $ref: '#/components/schemas/AuditSessionSummary'
+        nextCursor:
+          type: string
     MetadataEvent:
       type: object
-      required: [schemaVersion, eventId, eventType, source, occurredAt]
+      required:
+      - schemaVersion
+      - eventId
+      - eventType
+      - source
+      - occurredAt
       properties:
-        schemaVersion: { type: string }
-        eventId: { type: string }
-        eventType: { type: string }
-        source: { type: string }
-        occurredAt: { type: string, format: date-time }
-        requestId: { type: string }
-        userId: { type: string }
-        sessionId: { type: string }
-        hostId: { type: string }
-        crId: { type: string }
-        podId: { type: string }
-        instanceId: { type: string }
-        incidentId: { type: string }
-        runId: { type: string }
-        action: { type: string }
-        mode: { type: string }
-        outcome: { type: string }
-        reasonCode: { type: string }
-        planHash: { type: string }
+        schemaVersion:
+          type: string
+        eventId:
+          type: string
+        eventType:
+          type: string
+        source:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+        userId:
+          type: string
+        sessionId:
+          type: string
+        hostId:
+          type: string
+        crId:
+          type: string
+        podId:
+          type: string
+        instanceId:
+          type: string
+        incidentId:
+          type: string
+        runId:
+          type: string
+        action:
+          type: string
+        mode:
+          type: string
+        outcome:
+          type: string
+        reasonCode:
+          type: string
+        planHash:
+          type: string
     ListMetadataEventsResponse:
       type: object
-      required: [events]
+      required:
+      - events
       properties:
         events:
           type: array
           items:
-            $ref: "#/components/schemas/MetadataEvent"
-        nextCursor: { type: string }
+            $ref: '#/components/schemas/MetadataEvent'
+        nextCursor:
+          type: string
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+          required:
+          - message
+      required:
+      - error
+  responses:
+    Error:
+      description: Invalid request, authorization denial, or service failure; the HTTP status identifies the category.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+servers:
+- url: http://localhost:8085
+  description: Direct service address; public services are accessed through the authenticated ALB.
