@@ -34,8 +34,8 @@ SESSION_MANAGER_URL=http://session-manager:8081 \
 go run ./cmd/server
 ```
 
-The Postgres migration creates `session_audit_records` idempotently when it is
-missing. Existing rows from the former Session Manager-owned table are preserved.
+The Postgres migration creates `session_audit_records` idempotently and
+preserves existing records.
 
 Optional SNS/SQS metadata timeline ingestion:
 
@@ -76,7 +76,7 @@ Manager `GET /sessions/{sessionId}` before storing records.
 
 Records include best-effort command lines, output bytes encoded as base64 in
 JSON, control/session events, per-session sequence numbers, and truncation
-flags. Defaults:
+flags.
 
 The global record query is for dashboard/log search across retained SSH audit
 records. It supports `from`, `to`, `limit`, and offset `cursor` query
@@ -104,9 +104,8 @@ session audit endpoints.
 
 ## Design Notes
 
-Audit Service depends on Session Manager for session metadata and owner
-validation, but Session Manager no longer stores or serves retained audit
-records. This preserves the direct live terminal path:
+Audit Service owns retained audit storage and uses Session Manager for
+session metadata and owner validation. This preserves the direct live terminal path:
 
 ```text
 Browser <-> Proxy Dataplane <-> Target Host
@@ -121,17 +120,12 @@ go test ./...
 make test-postgres
 ```
 
-## API contract verification
+## API contract and CI
 
-`api/openapi.yaml` is the checked-in HTTP contract, served byte-for-byte at
-`GET /openapi.yaml`. CI validates it with `openapi-spec-validator==0.9.0`.
-Handler tests validate representative success and error responses against its
-schemas, including missing and unsupported API versions. Business HTTP calls
-require `x-api-version: 1`; the specification declares route exemptions and
-any transport-specific alternatives. Run the repository test suite when
-changing handlers or response models, and update the contract in the same PR.
+[OpenAPI contract](api/openapi.yaml), served byte-for-byte at `GET /openapi.yaml`.
+CI validates it with `openapi-spec-validator==0.9.0`; handler tests check success,
+error and API-version responses. Update the specification alongside handler changes.
 
-The Image workflow runs only after successful CI for a push to `main`. It builds
-the tested source SHA, retains that SHA as a traceability tag, and promotes the
-build's `sha256` digest through a Kubernetes PR. Promotion requires the digest;
-Argo CD deploys that immutable reference after the GitOps PR is merged.
+After successful `main` CI, the Image workflow builds the tested source SHA
+and opens a Kubernetes promotion PR with its immutable image digest. Argo CD
+deploys after that PR is merged; the commit tag provides source traceability.
